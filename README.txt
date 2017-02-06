@@ -15,7 +15,7 @@ Installation
 
 * No further modules required. Just place this module into sites/all/modules,
   and enable this module.
-* You may consider using the following modules to leverage the power
+* You might want to consider using the following modules to leverage the power
   of the Pool module: Views, Views Bulk Operations and Rules.
 
 
