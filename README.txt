@@ -8,8 +8,7 @@ Maintainers:
 
 The Pool module enables entities throwing other entities into certain pools.
 
-Project homepage: https://www.drupal.org/project/2473439
-
+Caution: This is legacy code from 7.x-1.x branch. It won't be developed any further.
 
 Installation
 ------------
