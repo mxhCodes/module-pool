@@ -1,0 +1,8 @@
+name = Entity Pools
+description = Let entities throw other entities into certain pools.
+package = Workflow
+
+files[] = pool.inc
+files[] = views/handlers/pool_views_handler_filter_equality.inc
+
+core = 7.x

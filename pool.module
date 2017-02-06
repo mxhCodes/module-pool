@@ -1,0 +1,246 @@
+<?php
+
+/**
+ * @file
+ * Pool module file.
+ */
+
+/**
+ * Get a whole pool.
+ *
+ * @param string $name
+ *   The name of the pool as string.
+ *
+ * @return object
+ *   The pool as object of type Pool.
+ */
+function pool_get($name) {
+  $pools = &drupal_static(__FUNCTION__, array());
+  if (isset($pools[$name])) {
+    return $pools[$name];
+  }
+
+  $pool = new Pool($name);
+  $pools[$name] = $pool;
+
+  return $pool;
+}
+
+/**
+ * Throws an item into a pool.
+ *
+ * @param string $pool
+ *   The name of the pool as string or object of type Pool.
+ * @param object $item
+ *   Object or array representing a pool item.
+ *
+ * @return object
+ *   The throwed in item as object.
+ */
+function pool_throwin($pool, $item) {
+  if (is_string($pool)) {
+    $pool = pool_get($pool);
+  }
+
+  return $pool->throwin($item);
+}
+
+/**
+ * Pulls out an item from a pool.
+ *
+ * @param string $pool
+ *   The name of the pool as string or object of type Pool.
+ * @param object $item
+ *   Object or array representing a pool item.
+ *   Omit if you want to pull out an arbitrary item.
+ * @param bool $throwback
+ *   Whether the item is being throwed back after pullout.
+ *   Default is TRUE. When set to FALSE, the item will be deleted.
+ *
+ * @return object
+ *   The pulled out item as object, FALSE otherwise.
+ */
+function pool_pullout($pool, $item = NULL, $throwback = TRUE) {
+  if (is_string($pool)) {
+    $pool = pool_get($pool);
+  }
+
+  return $pool->pullout($item, $throwback);
+}
+
+/**
+ * Creates a new pool item.
+ *
+ * A pool item is used to be throwed in or pulled out of a certain pool.
+ * See the documentation for examples how to throw in and pull out pool items.
+ *
+ * You may notice that each parameter is optional, as you may pull out
+ * items by certain criteria, e.g. to see whether a user
+ * has throwed in an arbitrary item into a pool.
+ *
+ * Please note when you want to throw in a new pool item,
+ * each parameter is required because every pool item must
+ * contain information which entity has been throwed in (throwedin)
+ * and which entity was the thrower (throwedby).
+ *
+ * @param object $throwedin
+ *   The object or id of the entity to throw in or pull out.
+ * @param string $throwedin_type
+ *   The type of the entity to throw in or pull out.
+ *   Required if $throwedin is set.
+ * @param object $throwedby
+ *   The object or id of the entity representing the thrower.
+ * @param string $throwedby_type
+ *   The type of the entity representing the thrower.
+ *   Required if $throwedby is set.
+ *
+ * @return object
+ *   A pool item as object, ready to be throwed in or pulled out.
+ */
+function pool_item_create($throwedin = NULL, $throwedin_type = NULL, $throwedby = NULL, $throwedby_type = NULL) {
+  // Assuming both $throwedin and $throwedby are integer IDs.
+  $item = array(
+    'throwedin_id' => $throwedin,
+    'throwedin_vid' => NULL,
+    'throwedin_type' => $throwedin_type,
+    'throwedby_id' => $throwedby,
+    'throwedby_vid' => NULL,
+    'throwedby_type' => $throwedby_type,
+  );
+
+  if (isset($throwedin) && is_object($throwedin)) {
+    $extract = entity_extract_ids($throwedin_type, $throwedin);
+    $item['throwedin_id'] = $extract[0];
+    $item['throwedin_vid'] = $extract[1];
+  }
+  if (isset($throwedby) && is_object($throwedby)) {
+    $extract = entity_extract_ids($throwedby_type, $throwedby);
+    $item['throwedby_id'] = $extract[0];
+    $item['throwedby_vid'] = $extract[1];
+  }
+
+  return (object) $item;
+}
+
+/**
+ * Loads a pool item.
+ *
+ * @param int $itemid
+ *   The primary id of the item.
+ *
+ * @return object
+ *   The item as object, FALSE if no item has been found.
+ */
+function pool_item_load($itemid) {
+  $items = &drupal_static(__FUNCTION__, array());
+  if (isset($items[$itemid])) {
+    return $items[$itemid];
+  }
+
+  $record = db_select('pools', 'p')->fields('p')
+    ->where('itemid = :id', array(':id' => $itemid))
+    ->execute()->fetch();
+  if ($record) {
+    $item = $record;
+    $item->pool = pool_get($item->pool);
+  }
+
+  $items[$itemid] = $item;
+
+  return $item;
+}
+
+/**
+ * Saves a pool item.
+ *
+ * @param object &$item
+ *   Object or array representing a pool item.
+ */
+function pool_item_save(&$item) {
+  if (is_array($item)) {
+    $item = (object) $item;
+  }
+
+  if ($item->pool instanceof Pool) {
+    $item->pool = $item->pool->name();
+  }
+  if (isset($item->itemid)) {
+    drupal_write_record('pools', $item, 'itemid');
+  }
+  else {
+    $item->stamp = REQUEST_TIME;
+    drupal_write_record('pools', $item);
+  }
+}
+
+/**
+ * Deletes a pool item.
+ *
+ * @param int $itemid
+ *   The primary id of the item.
+ */
+function pool_item_delete($itemid) {
+  $item = pool_item_load($itemid);
+  if ($item) {
+    $item->pool->pullout($item, FALSE);
+  }
+}
+
+/**
+ * Implements hook_entity_delete().
+ *
+ * Cleans all items from pools which refer to this entity.
+ * This invoke is needed to keep consistency.
+ */
+function pool_entity_delete($entity, $type) {
+  $pools = array();
+
+  $stored = db_query('SELECT DISTINCT(pool) FROM pools')->fetchCol();
+  $cached = drupal_static('pool_get', array());
+
+  foreach ($stored as $name) {
+    $pools[$name] = pool_get($name);
+    unset($cached[$name]);
+  }
+
+  // Some on-the-fly created pools are still present,
+  // which also need to be added to the pools list.
+  if (!empty($cached)) {
+    foreach ($cached as $name => $rest) {
+      $pools[$name] = pool_get($name);
+    }
+  }
+
+  foreach ($pools as $pool) {
+    // Entity as a throwed in item.
+    while (TRUE) {
+      $item = pool_item_create($entity, $type);
+      unset($item->throwedin_vid);
+      $item = $pool->pullout($item, FALSE);
+      if (!$item) {
+        break;
+      }
+    }
+    // Entity as thrower.
+    while (TRUE) {
+      $item = pool_item_create(NULL, NULL, $entity, $type);
+      unset($item->throwedby_vid);
+      $item = $pool->pullout($item, FALSE);
+      if (!$item) {
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ *
+ * This invoke is required for Views integration.
+ */
+function pool_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'pool') . '/views',
+  );
+}

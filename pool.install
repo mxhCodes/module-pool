@@ -1,0 +1,92 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the pool module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function pool_schema() {
+  $schema = array();
+
+  $schema['pools'] = array(
+    'description' => 'This table represents all pools with all their items.',
+    'fields' => array(
+      'itemid' => array(
+        'description' => 'The (abstract) identifier of the pool item.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'size' => 'big',
+      ),
+      'pool' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'description' => 'The pool the item has been throwed in.',
+      ),
+      'stamp' => array(
+        'description' => 'The timestamp when the item was throwed in.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'throwedin_id' => array(
+        'decription' => 'The id of the throwed in entity (throwedin).',
+        'type' => 'int',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'throwedin_vid' => array(
+        'decription' => 'The revision id of the throwed in entity (throwedin).',
+        'type' => 'int',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+      'throwedin_type' => array(
+        'description' => 'The type of the throwed in entity (throwedin).',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+      ),
+      'throwedby_id' => array(
+        'decription' => 'The entity id of the thrower (throwedby).',
+        'type' => 'int',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'throwedby_vid' => array(
+        'decription' => 'The revision id of the thrower (throwedby).',
+        'type' => 'int',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+      'throwedby_type' => array(
+        'description' => 'The entity type of the thrower (throwedby).',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('itemid'),
+    'unique keys' => array(
+      'pool_throwedin' => array(
+        'pool',
+        'throwedin_id',
+        'throwedin_vid',
+        'throwedin_type',
+        'throwedby_id',
+        'throwedby_vid',
+        'throwedby_type',
+      ),
+    ),
+  );
+
+  return $schema;
+}
