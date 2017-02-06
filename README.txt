@@ -17,8 +17,3 @@ Installation
   and enable this module.
 * You might want to consider using the following modules to leverage the power
   of the Pool module: Views, Views Bulk Operations and Rules.
-
-
-Documentation
--------------
-* Documentation is currently under development. Help us by contributing on drupal.org.
